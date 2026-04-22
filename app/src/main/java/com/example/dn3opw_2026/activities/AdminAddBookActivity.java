@@ -1,0 +1,396 @@
+package com.example.dn3opw_2026.activities;
+
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.OpenableColumns;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
+import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import com.bumptech.glide.Glide;
+import com.example.dn3opw_2026.R;
+import com.example.dn3opw_2026.network.responses.BaseResponse;
+import com.example.dn3opw_2026.repository.AdminRepository;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Locale;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+public class AdminAddBookActivity extends AppCompatActivity {
+
+    private DrawerLayout drawerLayout;
+    private ImageButton menuButton;
+    private ImageView bgImage;
+    private ImageView imagePreview;
+
+    private TextView headerTitle;
+    private TextView adminText;
+
+    private EditText titleEntry;
+    private EditText authorEntry;
+    private EditText categoryEntry;
+    private EditText releaseEntry;
+    private EditText quantityEntry;
+    private EditText descriptionEntry;
+
+    private Button selectImageButton;
+    private Button saveImageButton;
+    private TextView imageLabel;
+    private Button submitButton;
+    private Button backButton;
+
+    private Button profileButton;
+    private Button communityButton;
+    private Button eventsButton;
+    private Button logoutButton;
+
+    private Uri selectedImageUri;
+    private String selectedImageName = "Nincs kiválasztva kép";
+    private boolean imageReadyToUpload = false;
+
+    private int adminId;
+    private int libraryId;
+    private String firstname;
+    private String lastname;
+    private String username;
+    private String email;
+
+    private AdminRepository adminRepository;
+
+    private final ActivityResultLauncher<String> imagePickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+                if (uri != null) {
+                    selectedImageUri = uri;
+                    selectedImageName = getFileName(uri);
+                    imageLabel.setText(selectedImageName);
+                    imageReadyToUpload = false;
+                    saveImageButton.setEnabled(true);
+                    saveImageButton.setText("Mentés könyvtárba");
+
+                    Glide.with(this)
+                            .load(uri)
+                            .placeholder(R.drawable.book_placeholder)
+                            .error(R.drawable.book_placeholder)
+                            .into(imagePreview);
+                }
+            });
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_admin_add_book);
+
+        adminRepository = new AdminRepository();
+
+        readIntentData();
+        initViews();
+        setupBackgroundBlur();
+        setupHeader();
+        setupListeners();
+        setupBackPressed();
+    }
+
+    private void readIntentData() {
+        Intent intent = getIntent();
+        adminId = intent.getIntExtra("admin_id", -1);
+        libraryId = intent.getIntExtra("library_id", -1);
+        firstname = intent.getStringExtra("firstname");
+        lastname = intent.getStringExtra("lastname");
+        username = intent.getStringExtra("username");
+        email = intent.getStringExtra("email");
+
+        if (firstname == null) firstname = "";
+        if (lastname == null) lastname = "";
+        if (username == null) username = "";
+        if (email == null) email = "";
+    }
+
+    private Intent createAdminIntent(Class<?> target) {
+        Intent intent = new Intent(AdminAddBookActivity.this, target);
+        intent.putExtra("admin_id", adminId);
+        intent.putExtra("library_id", libraryId);
+        intent.putExtra("firstname", firstname);
+        intent.putExtra("lastname", lastname);
+        intent.putExtra("username", username);
+        intent.putExtra("email", email);
+        return intent;
+    }
+
+    private void openAdminPage(Class<?> target) {
+        startActivity(createAdminIntent(target));
+    }
+
+    private void initViews() {
+        drawerLayout = findViewById(R.id.drawerLayout);
+        menuButton = findViewById(R.id.menuButton);
+        bgImage = findViewById(R.id.bgImage);
+        imagePreview = findViewById(R.id.imagePreview);
+
+        headerTitle = findViewById(R.id.headerTitle);
+        adminText = findViewById(R.id.adminText);
+
+        titleEntry = findViewById(R.id.titleEntry);
+        authorEntry = findViewById(R.id.authorEntry);
+        categoryEntry = findViewById(R.id.categoryEntry);
+        releaseEntry = findViewById(R.id.releaseEntry);
+        quantityEntry = findViewById(R.id.quantityEntry);
+        descriptionEntry = findViewById(R.id.descriptionEntry);
+
+        selectImageButton = findViewById(R.id.selectImageButton);
+        saveImageButton = findViewById(R.id.saveImageButton);
+        imageLabel = findViewById(R.id.imageLabel);
+        submitButton = findViewById(R.id.submitButton);
+        backButton = findViewById(R.id.backButton);
+
+        profileButton = findViewById(R.id.profileButton);
+        communityButton = findViewById(R.id.communityButton);
+        eventsButton = findViewById(R.id.eventsButton);
+        logoutButton = findViewById(R.id.logoutButton);
+    }
+
+    private void setupBackgroundBlur() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            bgImage.setRenderEffect(
+                    RenderEffect.createBlurEffect(12f, 12f, Shader.TileMode.CLAMP)
+            );
+        }
+    }
+
+    private void setupHeader() {
+        headerTitle.setText("Könyv hozzáadása");
+        adminText.setText("Admin: " + lastname + " " + firstname);
+
+        Glide.with(this)
+                .load(R.drawable.book_placeholder)
+                .into(imagePreview);
+    }
+
+    private void setupListeners() {
+        menuButton.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
+
+        selectImageButton.setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
+
+        saveImageButton.setOnClickListener(v -> {
+            if (selectedImageUri == null) {
+                showMessage("Nincs kép", "Először válassz ki egy képet!");
+                return;
+            }
+
+            imageReadyToUpload = true;
+            saveImageButton.setEnabled(false);
+            saveImageButton.setText("Mentve");
+            showMessage("Siker", "A kép mentésre kész. A könyv hozzáadásakor a szerver elmenti mindkét mappába.");
+        });
+
+        submitButton.setOnClickListener(v -> submitBook());
+
+        backButton.setOnClickListener(v -> finish());
+
+        profileButton.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            openAdminPage(AdminProfileActivity.class);
+        });
+
+        communityButton.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            openAdminPage(AdminCommunityActivity.class);
+        });
+
+        eventsButton.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            openAdminPage(AdminEventActivity.class);
+        });
+
+        logoutButton.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(GravityCompat.START);
+            Intent intent = new Intent(AdminAddBookActivity.this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+        });
+    }
+
+    private void submitBook() {
+        String title = titleEntry.getText().toString().trim();
+        String author = authorEntry.getText().toString().trim();
+        String category = categoryEntry.getText().toString().trim();
+        String releaseDate = releaseEntry.getText().toString().trim();
+        String description = descriptionEntry.getText().toString().trim();
+        String quantityStr = quantityEntry.getText().toString().trim();
+
+        if (title.isEmpty() || author.isEmpty() || category.isEmpty()
+                || releaseDate.isEmpty() || description.isEmpty() || quantityStr.isEmpty()) {
+            showMessage("Hiányzó adat", "Kérlek, tölts ki minden mezőt!");
+            return;
+        }
+
+        if (!isValidDate(releaseDate)) {
+            showMessage("Hibás dátum", "A kiadás dátumát így add meg: ÉÉÉÉ-HH-NN");
+            return;
+        }
+
+        if (!quantityStr.matches("\\d+") || Integer.parseInt(quantityStr) <= 0) {
+            showMessage("Hibás mennyiség", "A mennyiségnek pozitív egész számnak kell lennie!");
+            return;
+        }
+
+        if (selectedImageUri == null) {
+            showMessage("Kép hiányzik", "Először válassz ki egy képet!");
+            return;
+        }
+
+        if (!imageReadyToUpload) {
+            showMessage("Kép nincs elmentve", "A képet előbb mentsd el a Mentés könyvtárba gombbal!");
+            return;
+        }
+
+        try {
+            File imageFile = createTempFileFromUri(selectedImageUri);
+
+            String mimeType = getContentResolver().getType(selectedImageUri);
+            if (mimeType == null || mimeType.trim().isEmpty()) {
+                mimeType = "image/*";
+            }
+
+            RequestBody imageRequestBody = RequestBody.create(
+                    MediaType.parse(mimeType),
+                    imageFile
+            );
+
+            MultipartBody.Part imagePart = MultipartBody.Part.createFormData(
+                    "image",
+                    imageFile.getName(),
+                    imageRequestBody
+            );
+
+            adminRepository.addAdminBook(
+                    createPart(title),
+                    createPart(author),
+                    createPart(category),
+                    createPart(releaseDate),
+                    createPart(description),
+                    createPart(username),
+                    createPart(String.valueOf(libraryId)),
+                    createPart(quantityStr),
+                    imagePart
+            ).enqueue(new Callback<BaseResponse>() {
+                @Override
+                public void onResponse(Call<BaseResponse> call, Response<BaseResponse> response) {
+                    if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                        setResult(RESULT_OK);
+                        finish();
+                    } else {
+                        String message = "A könyv hozzáadása sikertelen!";
+                        if (response.body() != null && response.body().getMessage() != null) {
+                            message = response.body().getMessage();
+                        }
+                        showMessage("Hiba", message);
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<BaseResponse> call, Throwable t) {
+                    showMessage("Hiba", "Hálózati hiba: " + t.getMessage());
+                }
+            });
+
+        } catch (Exception e) {
+            showMessage("Hiba", "Nem sikerült feldolgozni a képet: " + e.getMessage());
+        }
+    }
+
+    private RequestBody createPart(String value) {
+        return RequestBody.create(MediaType.parse("text/plain"), value);
+    }
+
+    private boolean isValidDate(String value) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            sdf.setLenient(false);
+            sdf.parse(value);
+            return true;
+        } catch (ParseException e) {
+            return false;
+        }
+    }
+
+    private String getFileName(Uri uri) {
+        String result = selectedImageName;
+        if ("content".equals(uri.getScheme())) {
+            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null) {
+                int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (cursor.moveToFirst() && nameIndex >= 0) {
+                    result = cursor.getString(nameIndex);
+                }
+                cursor.close();
+            }
+        }
+        return result == null || result.trim().isEmpty() ? "kivalasztott_kep" : result;
+    }
+
+    private File createTempFileFromUri(Uri uri) throws Exception {
+        String fileName = getFileName(uri);
+        File tempFile = new File(getCacheDir(), fileName);
+
+        InputStream inputStream = getContentResolver().openInputStream(uri);
+        if (inputStream == null) {
+            throw new Exception("Nem sikerült megnyitni a képfájlt.");
+        }
+
+        FileOutputStream outputStream = new FileOutputStream(tempFile);
+
+        byte[] buffer = new byte[4096];
+        int read;
+        while ((read = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, read);
+        }
+
+        outputStream.flush();
+        outputStream.close();
+        inputStream.close();
+
+        return tempFile;
+    }
+
+    private void showMessage(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private void setupBackPressed() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    drawerLayout.closeDrawer(GravityCompat.START);
+                } else {
+                    finish();
+                }
+            }
+        });
+    }
+}

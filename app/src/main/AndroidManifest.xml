@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="DN3OPW_2026"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.DN3OPW_2026"
+        android:usesCleartextTraffic="true">
+
+        <activity android:name=".activities.AdminDashboardActivity" />
+        <activity android:name=".activities.AdminLoginActivity" />
+        <activity android:name=".activities.RegisterActivity" />
+        <activity android:name=".activities.HomeActivity" />
+        <activity android:name=".activities.ProfileActivity" />
+        <activity android:name=".activities.LibraryActivity" />
+        <activity android:name=".activities.BookActivity" />
+        <activity android:name=".activities.CommunityActivity" />
+        <activity android:name=".activities.TopicDetailsActivity" />
+        <activity android:name=".activities.EventActivity" />
+        <activity android:name=".activities.EventDetailsActivity" />
+        <activity android:name=".activities.AddTopicActivity" />
+        <activity android:name=".activities.AdminBookDetailsActivity" />
+        <activity android:name=".activities.AdminAddBookActivity" />
+        <activity android:name=".activities.AdminEditBookActivity" />
+        <activity android:name=".activities.AdminProfileActivity" />
+        <activity android:name=".activities.AdminCommunityActivity" />
+        <activity android:name=".activities.AdminTopicDetailsActivity" />
+        <activity android:name=".activities.AdminEventActivity" />
+        <activity android:name=".activities.AdminEventDetailsActivity" />
+        <activity android:name=".activities.AdminEditEventActivity" />
+        <activity android:name=".activities.AdminAddEventActivity" />
+
+        <activity
+            android:name=".activities.LoginActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>
